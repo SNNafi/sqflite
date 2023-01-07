@@ -21,11 +21,8 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
-import android.database.DatabaseErrorHandler;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteCantOpenDatabaseException;
-import android.database.sqlite.SQLiteCursor;
-import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -49,6 +46,11 @@ import java.util.Map;
 
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
+import io.requery.android.database.DatabaseErrorHandler;
+import io.requery.android.database.sqlite.SQLiteCursor;
+import io.requery.android.database.sqlite.SQLiteCustomExtension;
+import io.requery.android.database.sqlite.SQLiteDatabase;
+import io.requery.android.database.sqlite.SQLiteDatabaseConfiguration;
 
 class Database {
     // To turn on when supported fully
@@ -124,22 +126,41 @@ class Database {
             flags |= SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING;
         }
 
-        sqliteDatabase = SQLiteDatabase.openDatabase(path, null, flags);
+        SQLiteDatabaseConfiguration configuration = new SQLiteDatabaseConfiguration(path, flags);
+        configuration.customExtensions.add(new SQLiteCustomExtension(
+                "libarabictokenizer.so",
+                "sqlite3_sqlitearabictokenizer_init"
+        ));
+
+        sqliteDatabase = SQLiteDatabase.openDatabase(configuration, null, new DatabaseErrorHandler() {
+            @Override
+            public void onCorruption(SQLiteDatabase dbObj) {
+                // ignored
+                // default implementation delete the file
+                //
+                // This happens asynchronously so cannot be tracked. However a simple
+                // access should fail
+            }
+        });
     }
 
     // Change default error handler to avoid erasing the existing file.
     public void openReadOnly() {
-        sqliteDatabase = SQLiteDatabase.openDatabase(path, null,
-                SQLiteDatabase.OPEN_READONLY, new DatabaseErrorHandler() {
-                    @Override
-                    public void onCorruption(SQLiteDatabase dbObj) {
-                        // ignored
-                        // default implementation delete the file
-                        //
-                        // This happens asynchronously so cannot be tracked. However a simple
-                        // access should fail
-                    }
-                });
+        SQLiteDatabaseConfiguration configuration = new SQLiteDatabaseConfiguration(path, SQLiteDatabase.OPEN_READONLY);
+        configuration.customExtensions.add(new SQLiteCustomExtension(
+                "libarabictokenizer.so",
+                "sqlite3_sqlitearabictokenizer_init"
+        ));
+        sqliteDatabase = SQLiteDatabase.openDatabase(configuration, null, new DatabaseErrorHandler() {
+            @Override
+            public void onCorruption(io.requery.android.database.sqlite.SQLiteDatabase sqLiteDatabase) {
+                // ignored
+                // default implementation delete the file
+                //
+                // This happens asynchronously so cannot be tracked. However a simple
+                // access should fail
+            }
+        });
     }
 
     public void close() {
