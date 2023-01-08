@@ -4,6 +4,7 @@
 #import "SqfliteFmdbImport.m"
 
 #import <sqlite3.h>
+#include "arabic_tokenizer/sqlite3-arabic-tokenizer.h"
 
 static NSString *const _channelName = @"com.tekartik.sqflite";
 static NSString *const _inMemoryPath = @":memory:";
@@ -606,6 +607,15 @@ static NSInteger _databaseOpenCount = 0;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         [queue inDatabase:^(FMDatabase *db) {
             sqlite3_extended_result_codes(db.sqliteHandle, 1);
+             fts5_api *pRet = 0;
+             sqlite3_stmt *pStmt = 0;
+             if(SQLITE_OK==sqlite3_prepare(db.sqliteHandle, "SELECT fts5(?1)", -1, &pStmt, 0) ){
+                sqlite3_bin_pointer(pStmt, (void*)&pRet, "fts5_api_ptr", NULL);
+                sqlite3_step(pStmt);
+             }
+             sqlite3_finalize(pStmt);
+             sqlite3_sqlitearabictokenizer_init(db.sqliteHandle, NULL, api);
+             NSLog(@"Loaded arabic tokenizer");
         }];
     });
     

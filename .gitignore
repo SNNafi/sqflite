@@ -63,3 +63,5 @@ GeneratedPluginRegistrant.java
 
 # Local files
 .local/
+
+.cxx/
